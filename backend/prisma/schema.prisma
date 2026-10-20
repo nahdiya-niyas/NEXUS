@@ -8,11 +8,127 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum Role {
+  STUDENT
+  LECTURER
+  ADMIN
+}
+
+enum SubmissionStatus {
+  SUBMITTED
+  LATE
+}
+
 model User {
+  id           Int      @id @default(autoincrement())
+  name         String
+  email        String   @unique
+  password     String
+  role         Role     @default(STUDENT)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  enrollments  Enrollment[]
+  modules      Module[]      @relation("ModuleLecturer")
+  assignments  Assignment[]  @relation("AssignmentLecturer")
+  submissions  Submission[]
+  privateFiles PrivateFile[]
+  notifications Notification[]
+}
+
+model Module {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique
+  name        String
+  description String?
+  credits     Int
+  lecturerId  Int?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  lecturer    User?        @relation("ModuleLecturer", fields: [lecturerId], references: [id])
+  enrollments Enrollment[]
+  assignments Assignment[]
+  resources   Resource[]
+}
+
+model Enrollment {
+  id         Int      @id @default(autoincrement())
+  studentId  Int
+  moduleId   Int
+  enrolledAt DateTime @default(now())
+
+  student User   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  module  Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, moduleId])
+}
+
+model Assignment {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String?
+  deadline    DateTime
+
+  fileName    String?
+  filePath    String?
+
+  moduleId    Int
+  lecturerId  Int?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  module      Module       @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  lecturer    User?        @relation("AssignmentLecturer", fields: [lecturerId], references: [id])
+  submissions Submission[]
+}
+model Submission {
+  id           Int              @id @default(autoincrement())
+  assignmentId Int
+  studentId    Int
+  fileName     String
+  filePath     String
+  submittedAt  DateTime         @default(now())
+  status       SubmissionStatus @default(SUBMITTED)
+
+  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  student    User       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([assignmentId, studentId])
+}
+
+model Resource {
   id        Int      @id @default(autoincrement())
-  name      String
-  email     String   @unique
-  password  String
+  title     String
+  fileName  String
+  filePath  String
+  moduleId  Int
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+
+  module Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+}
+
+model PrivateFile {
+  id         Int      @id @default(autoincrement())
+  fileName   String
+  filePath   String
+  uploadedAt DateTime @default(now())
+  studentId  Int
+
+  student User @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  title     String
+  message   String
+  type      String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  studentId Int
+
+  student User @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([studentId])
 }
