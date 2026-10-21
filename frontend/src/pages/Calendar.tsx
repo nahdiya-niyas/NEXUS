@@ -1,398 +1,154 @@
-
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-
 import { api } from "../services/api";
-import PageLayout from "../components/PageLayout";
+import AppShell from "../components/AppShell";
+import PageHeader from "../components/PageHeader";
 
-interface Assignment {
-  id: number;
-  title: string;
-  deadline: string;
-  module: {
-    id: number;
-    code: string;
-    name: string;
-  };
-}
+interface Assignment { id: number; title: string; deadline: string; module: { id: number; code: string; name: string; }; }
 
-function Calendar() {
+export default function Calendar() {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const [current, setCurrent] = useState(new Date());
 
   useEffect(() => {
-    loadAssignments();
+    api.get("/assignments").then(r => setAssignments(r.data.assignments || [])).catch(e => setError(e.response?.data?.message || "Failed to load")).finally(() => setLoading(false));
   }, []);
 
-  async function loadAssignments() {
-    try {
-      setLoading(true);
-      setError("");
+  const year = current.getFullYear();
+  const month = current.getMonth();
+  const monthName = current.toLocaleString("default", { month: "long" });
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-      const response = await api.get("/assignments");
+  const cells = useMemo(() => {
+    const arr: (number | null)[] = [];
+    for (let i = 0; i < firstDay; i++) arr.push(null);
+    for (let d = 1; d <= daysInMonth; d++) arr.push(d);
+    return arr;
+  }, [firstDay, daysInMonth]);
 
-      setAssignments(response.data.assignments || []);
-    } catch (err: any) {
-      setError(
-        err.response?.data?.message ||
-          "Failed to load calendar data."
-      );
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  const year = currentDate.getFullYear();
-  const month = currentDate.getMonth();
-
-  const monthName = currentDate.toLocaleString("default", {
-    month: "long",
-  });
-
-  const firstDayOfMonth = new Date(year, month, 1).getDay();
-
-  const daysInMonth = new Date(
-    year,
-    month + 1,
-    0
-  ).getDate();
-
-  const calendarDays = useMemo(() => {
-    const days: (number | null)[] = [];
-
-    for (let i = 0; i < firstDayOfMonth; i++) {
-      days.push(null);
-    }
-
-    for (let day = 1; day <= daysInMonth; day++) {
-      days.push(day);
-    }
-
-    return days;
-  }, [firstDayOfMonth, daysInMonth]);
-
-  function goToPreviousMonth() {
-    setCurrentDate(new Date(year, month - 1, 1));
-  }
-
-  function goToNextMonth() {
-    setCurrentDate(new Date(year, month + 1, 1));
-  }
-
-  function goToToday() {
-    setCurrentDate(new Date());
-  }
-
-  function getAssignmentsForDay(day: number) {
-    return assignments.filter((assignment) => {
-      const deadline = new Date(assignment.deadline);
-
-      return (
-        deadline.getFullYear() === year &&
-        deadline.getMonth() === month &&
-        deadline.getDate() === day
-      );
+  function assignmentsForDay(day: number) {
+    return assignments.filter(a => {
+      const d = new Date(a.deadline);
+      return d.getFullYear() === year && d.getMonth() === month && d.getDate() === day;
     });
   }
 
   function isToday(day: number) {
-    const today = new Date();
-
-    return (
-      today.getFullYear() === year &&
-      today.getMonth() === month &&
-      today.getDate() === day
-    );
+    const t = new Date();
+    return t.getFullYear() === year && t.getMonth() === month && t.getDate() === day;
   }
 
-  function formatTime(dateString: string) {
-    return new Date(dateString).toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  }
+  const upcoming = assignments.filter(a => new Date(a.deadline) >= new Date())
+    .sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime())
+    .slice(0, 6);
 
   return (
-    <PageLayout
-      title="Calendar"
-      subtitle="Student Workspace"
-      description="View your assignment deadlines and academic dates."
-    >
+    <AppShell>
+      <PageHeader title="Calendar" description="View assignment deadlines across the month." />
 
-        {/* CALENDAR */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 260px", gap: "1.25rem", alignItems: "start" }}>
 
-        <section className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-lg">
-
-          {/* TOOLBAR */}
-
-          <div className="flex flex-col gap-4 border-b border-slate-800 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
-
-            <div>
-              <h3 className="text-xl font-semibold text-white">
-                {monthName} {year}
-              </h3>
-
-              <p className="mt-1 text-sm text-slate-500">
-                Assignment deadlines are shown on their due dates.
-              </p>
-            </div>
-
-            <div className="flex items-center gap-2">
-
-              <button
-                type="button"
-                onClick={goToPreviousMonth}
-                className="rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-300 transition hover:bg-slate-800 hover:text-white"
-              >
-                ←
-              </button>
-
-              <button
-                type="button"
-                onClick={goToToday}
-                className="rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-300 transition hover:bg-slate-800 hover:text-white"
-              >
-                Today
-              </button>
-
-              <button
-                type="button"
-                onClick={goToNextMonth}
-                className="rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-300 transition hover:bg-slate-800 hover:text-white"
-              >
-                →
-              </button>
-
+        {/* Calendar grid */}
+        <div className="card">
+          {/* Toolbar */}
+          <div className="card-header">
+            <h2 className="card-title">{monthName} {year}</h2>
+            <div style={{ display: "flex", gap: "0.375rem" }}>
+              <button className="btn btn-secondary btn-sm" onClick={() => setCurrent(new Date(year, month - 1, 1))}>‹</button>
+              <button className="btn btn-secondary btn-sm" onClick={() => setCurrent(new Date())}>Today</button>
+              <button className="btn btn-secondary btn-sm" onClick={() => setCurrent(new Date(year, month + 1, 1))}>›</button>
             </div>
           </div>
 
-          {/* LOADING */}
-
-          {loading && (
-            <div className="px-6 py-12 text-center text-sm text-slate-400">
-              Loading calendar...
-            </div>
-          )}
-
-          {/* ERROR */}
-
-          {!loading && error && (
-            <div className="m-6 rounded-lg border border-red-800 bg-red-950/40 px-4 py-3 text-sm text-red-300">
-              {error}
-            </div>
-          )}
-
-          {/* CALENDAR GRID */}
-
-          {!loading && !error && (
-            <div className="p-4 sm:p-6">
-
-              {/* WEEKDAYS */}
-
-              <div className="grid grid-cols-7 border-b border-slate-800">
-
-                {[
-                  "Sun",
-                  "Mon",
-                  "Tue",
-                  "Wed",
-                  "Thu",
-                  "Fri",
-                  "Sat",
-                ].map((day) => (
-                  <div
-                    key={day}
-                    className="px-2 py-3 text-center text-xs font-semibold uppercase tracking-wide text-slate-500"
-                  >
-                    {day}
-                  </div>
+          {loading ? (
+            <div style={{ padding: "2rem", textAlign: "center", color: "var(--color-text-3)" }}>Loading…</div>
+          ) : error ? (
+            <div style={{ padding: "1rem" }}><div className="alert alert-danger">{error}</div></div>
+          ) : (
+            <div style={{ padding: "0.75rem" }}>
+              {/* Weekday headers */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", marginBottom: "0.25rem" }}>
+                {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map(d => (
+                  <div key={d} style={{ padding: "0.375rem 0.25rem", textAlign: "center", fontSize: "0.6875rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--color-text-3)" }}>{d}</div>
                 ))}
-
               </div>
-
-              {/* DAYS */}
-
-              <div className="grid grid-cols-7">
-
-                {calendarDays.map((day, index) => {
-
-                  if (day === null) {
-                    return (
-                      <div
-                        key={`empty-${index}`}
-                        className="min-h-32 border-b border-r border-slate-800 bg-slate-950/40"
-                      />
-                    );
-                  }
-
-                  const dayAssignments =
-                    getAssignmentsForDay(day);
-
+              {/* Days */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "2px" }}>
+                {cells.map((day, i) => {
+                  if (!day) return <div key={`e-${i}`} style={{ minHeight: "70px" }} />;
+                  const dayAssignments = assignmentsForDay(day);
+                  const today = isToday(day);
                   return (
-                    <div
-                      key={day}
-                      className="min-h-32 border-b border-r border-slate-800 bg-slate-900/60 p-2 transition hover:bg-slate-800/60"
-                    >
-
-                      {/* DAY NUMBER */}
-
-                      <div className="mb-2 flex justify-end">
-
-                        <span
-                          className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold ${
-                            isToday(day)
-                              ? "bg-white text-slate-950"
-                              : "text-slate-400"
-                          }`}
-                        >
+                    <div key={day} style={{
+                      minHeight: "70px", borderRadius: "var(--radius-md)", padding: "0.375rem",
+                      background: today ? "var(--color-student-light)" : "transparent",
+                      border: today ? `1px solid var(--color-student-border)` : "1px solid transparent",
+                    }}>
+                      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "0.25rem" }}>
+                        <span style={{
+                          fontSize: "0.8125rem", fontWeight: today ? 700 : 500,
+                          color: today ? "var(--color-student)" : "var(--color-text-3)",
+                          width: "1.5rem", height: "1.5rem",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          borderRadius: "9999px",
+                          background: today ? "var(--color-student)" : "transparent",
+                          color: today ? "white" : undefined,
+                        }}>
                           {day}
                         </span>
-
                       </div>
-
-                      {/* ASSIGNMENTS */}
-
-                      <div className="space-y-2">
-
-                        {dayAssignments.map(
-                          (assignment) => (
-                            <Link
-                              key={assignment.id}
-                              to={`/assignments/${assignment.id}`}
-                              className="block rounded-lg border border-slate-700 bg-slate-800/80 p-2 transition hover:border-blue-500 hover:bg-slate-700"
-                            >
-
-                              <p className="truncate text-xs font-semibold text-white">
-                                {assignment.title}
-                              </p>
-
-                              <p className="mt-1 truncate text-[11px] text-blue-400">
-                                {assignment.module.code}
-                              </p>
-
-                              <p className="mt-1 text-[11px] text-slate-500">
-                                {formatTime(
-                                  assignment.deadline
-                                )}
-                              </p>
-
-                            </Link>
-                          )
-                        )}
-
+                      <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                        {dayAssignments.map(a => (
+                          <Link key={a.id} to={`/assignments/${a.id}`} title={a.title}
+                            style={{ display: "block", padding: "2px 4px", borderRadius: "3px", fontSize: "0.65rem", fontWeight: 600, background: "var(--color-danger-light)", color: "var(--color-danger)", textDecoration: "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {a.module.code}
+                          </Link>
+                        ))}
                       </div>
-
                     </div>
                   );
                 })}
-
               </div>
-
             </div>
           )}
+        </div>
 
-        </section>
-
-        {/* UPCOMING DEADLINES */}
-
-        {!loading && !error && (
-          <section className="mt-8 rounded-2xl border border-slate-800 bg-slate-900 shadow-lg">
-
-            <div className="border-b border-slate-800 px-6 py-5">
-
-              <h3 className="text-lg font-semibold text-white">
-                Upcoming Deadlines
-              </h3>
-
-              <p className="mt-1 text-sm text-slate-500">
-                Your next assignment deadlines.
-              </p>
-
+        {/* Upcoming sidebar */}
+        <div className="card" style={{ position: "sticky", top: "1rem" }}>
+          <div className="card-header"><h2 className="card-title">Upcoming</h2></div>
+          {upcoming.length === 0 ? (
+            <div className="empty-state" style={{ padding: "1.5rem" }}>
+              <p className="empty-title">No upcoming deadlines</p>
             </div>
-
-            {assignments.filter(
-              (assignment) =>
-                new Date(assignment.deadline) >= new Date()
-            ).length === 0 ? (
-
-              <div className="px-6 py-10 text-center text-sm text-slate-500">
-                No upcoming deadlines.
-              </div>
-
-            ) : (
-
-              <div className="divide-y divide-slate-800">
-
-                {assignments
-                  .filter(
-                    (assignment) =>
-                      new Date(assignment.deadline) >=
-                      new Date()
-                  )
-                  .sort(
-                    (a, b) =>
-                      new Date(a.deadline).getTime() -
-                      new Date(b.deadline).getTime()
-                  )
-                  .slice(0, 5)
-                  .map((assignment) => (
-
-                    <Link
-                      key={assignment.id}
-                      to={`/assignments/${assignment.id}`}
-                      className="flex flex-col gap-2 px-6 py-5 transition hover:bg-slate-800/40 sm:flex-row sm:items-center sm:justify-between"
-                    >
-
-                      <div>
-
-                        <p className="font-medium text-slate-200">
-                          {assignment.title}
-                        </p>
-
-                        <p className="mt-1 text-sm text-blue-400">
-                          {assignment.module.code} —{" "}
-                          {assignment.module.name}
-                        </p>
-
+          ) : (
+            <div>
+              {upcoming.map(a => {
+                const days = Math.ceil((new Date(a.deadline).getTime() - Date.now()) / 86400000);
+                return (
+                  <Link key={a.id} to={`/assignments/${a.id}`} style={{ display: "block", padding: "0.75rem 1rem", borderBottom: "1px solid var(--color-border)", textDecoration: "none" }}
+                    onMouseEnter={e => (e.currentTarget.style.background = "var(--color-surface-2)")}
+                    onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <p style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--color-student)" }}>{a.module.code}</p>
+                        <p style={{ fontSize: "0.8125rem", color: "var(--color-text-2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.title}</p>
+                        <p style={{ fontSize: "0.6875rem", color: "var(--color-text-3)", marginTop: "0.125rem" }}>{new Date(a.deadline).toLocaleDateString()}</p>
                       </div>
+                      <span className={`badge ${days <= 3 ? "badge-red" : "badge-yellow"}`} style={{ flexShrink: 0, marginLeft: "0.375rem" }}>
+                        {days === 0 ? "Today" : `${days}d`}
+                      </span>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
-                      <div className="text-left sm:text-right">
-
-                        <p className="text-sm font-medium text-slate-300">
-                          {new Date(
-                            assignment.deadline
-                          ).toLocaleDateString(
-                            undefined,
-                            {
-                              dateStyle: "medium",
-                            }
-                          )}
-                        </p>
-
-                        <p className="mt-1 text-xs text-slate-500">
-                          {formatTime(
-                            assignment.deadline
-                          )}
-                        </p>
-
-                      </div>
-
-                    </Link>
-
-                  ))}
-
-              </div>
-
-            )}
-
-          </section>
-        )}
-
-    </PageLayout>
+      </div>
+    </AppShell>
   );
 }
-
-export default Calendar;

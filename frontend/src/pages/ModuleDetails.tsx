@@ -1,273 +1,152 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-
 import { api } from "../services/api";
-import Navbar from "../components/Navbar";
+import AppShell from "../components/AppShell";
 
-interface Lecturer {
-  id: number;
-  name: string;
-  email: string;
-}
-
-interface Assignment {
-  id: number;
-  title: string;
-  description?: string | null;
-  deadline: string;
-}
-
+interface Lecturer { id: number; name: string; email: string; }
+interface Assignment { id: number; title: string; description?: string | null; deadline: string; }
+interface Resource { id: number; title: string; fileName: string; filePath: string; createdAt: string; }
 interface Module {
-  id: number;
-  code: string;
-  name: string;
-  description?: string | null;
-  credits: number;
-  lecturer?: Lecturer | null;
-  assignments: Assignment[];
+  id: number; code: string; name: string; description?: string | null; credits: number;
+  lecturer?: Lecturer | null; assignments: Assignment[];
 }
 
-interface Resource {
-  id: number;
-  title: string;
-  fileName: string;
-  filePath: string;
-  createdAt: string;
-}
-
-function ModuleDetails() {
+export default function ModuleDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
-
   const [module, setModule] = useState<Module | null>(null);
   const [resources, setResources] = useState<Resource[]>([]);
   const [enrolled, setEnrolled] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [resourceLoading, setResourceLoading] = useState(false);
   const [error, setError] = useState("");
+  const [tab, setTab] = useState<"resources" | "assignments">("resources");
 
   useEffect(() => {
-    const loadModule = async () => {
+    (async () => {
       try {
         setLoading(true);
-        setError("");
-        const response = await api.get(`/modules/${id}`);
-        setModule(response.data.module);
-        setEnrolled(response.data.enrolled);
-      } catch (error: any) {
-        setError(error.response?.data?.message || "Failed to load module");
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadModule();
+        const res = await api.get(`/modules/${id}`);
+        setModule(res.data.module);
+        setEnrolled(res.data.enrolled);
+      } catch (err: any) { setError(err.response?.data?.message || "Failed to load module"); }
+      finally { setLoading(false); }
+    })();
   }, [id]);
 
   useEffect(() => {
     if (!enrolled || !id) { setResources([]); return; }
-    const loadResources = async () => {
-      try {
-        setResourceLoading(true);
-        const response = await api.get(`/resources/module/${id}`);
-        setResources(response.data.resources || []);
-      } catch (error: any) {
-        setError(error.response?.data?.message || "Failed to load resources");
-      } finally {
-        setResourceLoading(false);
-      }
-    };
-    loadResources();
+    api.get(`/resources/module/${id}`).then(r => setResources(r.data.resources || [])).catch(() => {});
   }, [enrolled, id]);
 
-  const getFileUrl = (filePath: string) => {
-    if (filePath.startsWith("http")) return filePath;
-    return `http://localhost:3001${filePath}`;
-  };
+  const fileUrl = (p: string) => p.startsWith("http") ? p : `http://localhost:3001${p}`;
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-950 text-white">
-        <Navbar />
-        <div className="flex items-center justify-center py-32">
-          <p className="text-slate-400">Loading module...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error && !module) {
-    return (
-      <div className="min-h-screen bg-slate-950 text-white">
-        <Navbar />
-        <div className="mx-auto max-w-7xl px-6 py-12">
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            className="mb-6 flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300"
-          >
-            ← Back to Modules
-          </button>
-          <div className="rounded-2xl border border-red-500/20 bg-red-950/20 p-8 text-center">
-            <p className="text-red-400">{error}</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!module) return null;
+  if (loading) return <AppShell><div style={{ padding: "3rem", textAlign: "center", color: "var(--color-text-3)" }}>Loading module…</div></AppShell>;
+  if (error || !module) return (
+    <AppShell>
+      <button className="btn btn-secondary btn-sm" style={{ marginBottom: "1rem" }} onClick={() => navigate(-1)}>← Back</button>
+      <div className="alert alert-danger">{error || "Module not found"}</div>
+    </AppShell>
+  );
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
-      <Navbar />
+    <AppShell>
+      {/* Back */}
+      <button className="btn btn-secondary btn-sm" style={{ marginBottom: "1rem" }} onClick={() => navigate(-1)}>← Back to Modules</button>
 
-      <main className="mx-auto max-w-7xl px-6 py-10">
-
-        {/* ← BACK BUTTON */}
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="mb-6 flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-4 py-2 text-sm font-medium text-slate-300 transition hover:bg-slate-800 hover:text-white"
-        >
-          ← Back to Modules
-        </button>
-
-        {/* PAGE HEADER */}
-        <div className="mb-8">
-          <p className="text-sm font-medium uppercase tracking-wide text-blue-400">
-            {module.code}
-          </p>
-          <h1 className="mt-2 text-3xl font-bold text-white">{module.name}</h1>
-          {module.description && (
-            <p className="mt-2 max-w-2xl text-slate-400">{module.description}</p>
-          )}
-          <div className="mt-4 flex flex-wrap gap-3">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-800 px-3 py-1.5 text-sm text-slate-300">
-              📚 {module.credits} Credits
-            </span>
-            {module.lecturer && (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-800 px-3 py-1.5 text-sm text-slate-300">
-                👤 {module.lecturer.name}
-              </span>
-            )}
+      {/* Header */}
+      <div className="card" style={{ marginBottom: "1.25rem" }}>
+        <div className="card-body" style={{ padding: "1.25rem 1.5rem" }}>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
+            <div>
+              <p style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--color-student)", textTransform: "uppercase", letterSpacing: "0.06em" }}>{module.code}</p>
+              <h1 className="page-title" style={{ marginTop: "0.25rem" }}>{module.name}</h1>
+              {module.description && <p className="page-description" style={{ maxWidth: "600px" }}>{module.description}</p>}
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+              <span className="badge badge-gray">{module.credits} credits</span>
+              {module.lecturer && <span className="badge badge-blue">👤 {module.lecturer.name}</span>}
+              {enrolled ? <span className="badge badge-green">Enrolled</span> : <span className="badge badge-yellow">Not enrolled</span>}
+            </div>
           </div>
         </div>
+      </div>
 
-        {/* NOT ENROLLED */}
-        {!enrolled ? (
-          <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-8">
-            <h3 className="text-xl font-semibold text-amber-400">
-              You are not enrolled in this module.
-            </h3>
-            <p className="mt-3 text-slate-300">
-              You need to enroll using the module code provided by your lecturer.
-            </p>
-            <Link
-              to="/modules"
-              className="mt-6 inline-block rounded-lg bg-blue-600 px-5 py-3 text-sm font-medium hover:bg-blue-500"
-            >
-              Go to Modules
-            </Link>
+      {!enrolled ? (
+        <div className="alert alert-warning">
+          You're not enrolled in this module. Enrol to access resources and assignments.
+          <Link to="/modules" style={{ marginLeft: "0.5rem", fontWeight: 600, color: "var(--color-warning)" }}>Go to Modules →</Link>
+        </div>
+      ) : (
+        <>
+          {/* Tabs */}
+          <div style={{ display: "flex", gap: "0.125rem", background: "var(--color-surface-2)", borderRadius: "var(--radius-lg)", padding: "0.25rem", marginBottom: "1.25rem", width: "fit-content" }}>
+            {(["resources", "assignments"] as const).map(t => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setTab(t)}
+                style={{
+                  padding: "0.375rem 0.875rem", borderRadius: "var(--radius-md)", border: "none", cursor: "pointer",
+                  fontSize: "0.875rem", fontWeight: 600, transition: "background 120ms, color 120ms",
+                  background: tab === t ? "white" : "transparent",
+                  color: tab === t ? "var(--color-text)" : "var(--color-text-3)",
+                  boxShadow: tab === t ? "var(--shadow-sm)" : "none",
+                }}
+              >
+                {t.charAt(0).toUpperCase() + t.slice(1)}
+              </button>
+            ))}
           </div>
-        ) : (
-          <>
-            {/* RESOURCES */}
-            <section className="mb-10">
-              <h2 className="mb-1 text-2xl font-semibold">Resources</h2>
-              <p className="mb-5 text-sm text-slate-400">Learning materials uploaded by your lecturer.</p>
 
-              {resourceLoading ? (
-                <div className="rounded-2xl border border-slate-800 bg-slate-900 p-8">
-                  <p className="text-slate-400">Loading resources...</p>
-                </div>
-              ) : resources.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-900 p-10 text-center">
-                  <p className="text-slate-400">No resources uploaded yet.</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {resources.map((resource) => (
-                    <div
-                      key={resource.id}
-                      className="flex items-center justify-between gap-4 rounded-xl border border-slate-800 bg-slate-900 p-5"
-                    >
-                      <div className="min-w-0">
-                        <p className="font-semibold">{resource.title}</p>
-                        <p className="mt-1 truncate text-sm text-slate-400">{resource.fileName}</p>
-                        <p className="mt-1 text-xs text-slate-500">
-                          Uploaded {new Date(resource.createdAt).toLocaleString()}
-                        </p>
-                      </div>
-                      <a
-                        href={getFileUrl(resource.filePath)}
-                        target="_blank"
-                        rel="noreferrer"
-                        download
-                        className="shrink-0 rounded-lg bg-blue-600 px-4 py-2.5 text-sm hover:bg-blue-500"
-                      >
-                        Download
-                      </a>
+          {tab === "resources" && (
+            resources.length === 0 ? (
+              <div className="card"><div className="empty-state"><div className="empty-icon">📂</div><p className="empty-title">No resources yet</p><p className="empty-description">Your lecturer hasn't uploaded any files for this module yet.</p></div></div>
+            ) : (
+              <div className="card">
+                {resources.map(r => (
+                  <div key={r.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.875rem 1.25rem", borderBottom: "1px solid var(--color-border)", gap: "1rem" }}>
+                    <div>
+                      <p style={{ fontWeight: 500, color: "var(--color-text)" }}>{r.title}</p>
+                      <p style={{ fontSize: "0.75rem", color: "var(--color-text-3)" }}>{r.fileName} · Uploaded {new Date(r.createdAt).toLocaleDateString()}</p>
                     </div>
-                  ))}
-                </div>
-              )}
-            </section>
+                    <a href={fileUrl(r.filePath)} target="_blank" rel="noreferrer" download className="btn btn-secondary btn-sm" style={{ flexShrink: 0 }}>Download</a>
+                  </div>
+                ))}
+              </div>
+            )
+          )}
 
-            {/* ASSIGNMENTS */}
-            <section>
-              <h2 className="mb-1 text-2xl font-semibold">Assignments</h2>
-              <p className="mb-5 text-sm text-slate-400">All assignments for this module.</p>
-
-              {module.assignments.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-900 p-10 text-center">
-                  <p className="text-slate-400">No assignments posted yet.</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {module.assignments
-                    .sort((a, b) => new Date(b.deadline).getTime() - new Date(a.deadline).getTime())
-                    .map((assignment) => {
-                      const isPast = new Date(assignment.deadline).getTime() < Date.now();
+          {tab === "assignments" && (
+            module.assignments.length === 0 ? (
+              <div className="card"><div className="empty-state"><div className="empty-icon">📝</div><p className="empty-title">No assignments</p><p className="empty-description">No assignments have been posted for this module yet.</p></div></div>
+            ) : (
+              <div className="card">
+                <table className="data-table">
+                  <thead><tr><th>Assignment</th><th>Description</th><th style={{ width: "160px" }}>Deadline</th><th style={{ width: "80px" }}></th></tr></thead>
+                  <tbody>
+                    {module.assignments.sort((a, b) => new Date(b.deadline).getTime() - new Date(a.deadline).getTime()).map(a => {
+                      const past = new Date(a.deadline) < new Date();
                       return (
-                        <Link
-                          key={assignment.id}
-                          to={`/assignments/${assignment.id}`}
-                          className="block rounded-xl border border-slate-800 bg-slate-900 p-5 transition hover:border-blue-500"
-                        >
-                          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                            <div>
-                              <div className="flex flex-wrap items-center gap-2">
-                                <h3 className="font-semibold text-slate-200">{assignment.title}</h3>
-                                {isPast ? (
-                                  <span className="rounded-full bg-slate-800 px-2.5 py-1 text-xs text-slate-500">Past</span>
-                                ) : (
-                                  <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs text-emerald-400">Upcoming</span>
-                                )}
-                              </div>
-                              <p className="mt-1 text-sm text-slate-400">
-                                {assignment.description || "No description."}
-                              </p>
-                            </div>
-                            <div className="shrink-0 text-left md:text-right">
-                              <p className="text-xs text-slate-500">Deadline</p>
-                              <p className={`mt-1 text-sm ${isPast ? "text-slate-500" : "text-amber-400"}`}>
-                                {new Date(assignment.deadline).toLocaleString()}
-                              </p>
-                              <p className="mt-2 text-xs text-blue-400">View →</p>
-                            </div>
-                          </div>
-                        </Link>
+                        <tr key={a.id}>
+                          <td style={{ fontWeight: 500, color: "var(--color-text)" }}>{a.title}</td>
+                          <td style={{ color: "var(--color-text-3)" }}>{a.description || "—"}</td>
+                          <td>
+                            <p style={{ fontSize: "0.8125rem", color: past ? "var(--color-text-3)" : "var(--color-warning)" }}>
+                              {new Date(a.deadline).toLocaleDateString(undefined, { dateStyle: "medium" })}
+                            </p>
+                            {past ? <span className="badge badge-gray">Past</span> : <span className="badge badge-yellow">Upcoming</span>}
+                          </td>
+                          <td><Link to={`/assignments/${a.id}`} className="btn btn-secondary btn-sm">View</Link></td>
+                        </tr>
                       );
                     })}
-                </div>
-              )}
-            </section>
-          </>
-        )}
-
-      </main>
-    </div>
+                  </tbody>
+                </table>
+              </div>
+            )
+          )}
+        </>
+      )}
+    </AppShell>
   );
 }
-
-export default ModuleDetails;

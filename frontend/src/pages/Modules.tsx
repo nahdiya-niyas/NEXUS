@@ -1,427 +1,185 @@
-
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-
 import { api } from "../services/api";
-import PageLayout from "../components/PageLayout";
+import AppShell from "../components/AppShell";
+import PageHeader from "../components/PageHeader";
 
-interface Module {
-  id: number;
-  code: string;
-  name: string;
-  description?: string | null;
-  credits: number;
-}
+interface Module { id: number; code: string; name: string; description?: string | null; credits: number; }
 
-function Modules() {
+export default function Modules() {
   const [modules, setModules] = useState<Module[]>([]);
-  const [enrolledModuleIds, setEnrolledModuleIds] =
-    useState<number[]>([]);
-
-  const [moduleCode, setModuleCode] = useState("");
-
+  const [enrolledIds, setEnrolledIds] = useState<number[]>([]);
+  const [code, setCode] = useState("");
   const [loading, setLoading] = useState(true);
   const [enrolling, setEnrolling] = useState(false);
   const [dropping, setDropping] = useState(false);
-
+  const [dropModal, setDropModal] = useState<Module | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
 
-  const [showDropModal, setShowDropModal] =
-    useState(false);
-
-  const [moduleToDrop, setModuleToDrop] =
-    useState<Module | null>(null);
-
-  const loadModules = async () => {
+  async function load() {
     try {
-      setLoading(true);
-      setError("");
-
-      const [modulesResponse, enrolledResponse] =
-        await Promise.all([
-          api.get("/modules"),
-          api.get("/enrollments/my"),
-        ]);
-
-      const allModules =
-        modulesResponse.data.modules || [];
-
-      const enrollments =
-        enrolledResponse.data.enrollments || [];
-
-      setModules(allModules);
-
-      setEnrolledModuleIds(
-        enrollments.map(
-          (enrollment: any) =>
-            enrollment.module.id
-        )
-      );
-    } catch (error: any) {
-      console.error(error);
-
-      setError(
-        error.response?.data?.message ||
-          "Failed to load modules"
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadModules();
-  }, []);
-
-  const handleEnroll = async (
-    event: React.FormEvent
-  ) => {
-    event.preventDefault();
-
-    if (!moduleCode.trim()) {
-      setError("Please enter a module code.");
-      return;
-    }
-
-    try {
-      setEnrolling(true);
-      setError("");
-      setMessage("");
-
-      const response = await api.post(
-        "/enrollments",
-        {
-          code: moduleCode.trim().toUpperCase(),
-        }
-      );
-
-      setMessage(
-        response.data.message ||
-          "Successfully enrolled in module."
-      );
-
-      setModuleCode("");
-
-      await loadModules();
-    } catch (error: any) {
-      console.error(error);
-
-      setError(
-        error.response?.data?.message ||
-          "Failed to enroll in module"
-      );
-    } finally {
-      setEnrolling(false);
-    }
-  };
-
-  function openDropModal(module: Module) {
-    setError("");
-    setMessage("");
-
-    setModuleToDrop(module);
-    setShowDropModal(true);
+      setLoading(true); setError("");
+      const [mRes, eRes] = await Promise.all([api.get("/modules"), api.get("/enrollments/my")]);
+      setModules(mRes.data.modules || []);
+      setEnrolledIds((eRes.data.enrollments || []).map((e: any) => e.module.id));
+    } catch (err: any) { setError(err.response?.data?.message || "Failed to load modules"); }
+    finally { setLoading(false); }
   }
 
-  function closeDropModal() {
-    if (dropping) {
-      return;
-    }
+  useEffect(() => { load(); }, []);
 
-    setShowDropModal(false);
-    setModuleToDrop(null);
-  }
-
-  const confirmDrop = async () => {
-    if (!moduleToDrop) {
-      return;
-    }
-
+  async function handleEnroll(e: React.FormEvent) {
+    e.preventDefault();
+    if (!code.trim()) { setError("Enter a module code."); return; }
     try {
-      setDropping(true);
-      setError("");
-      setMessage("");
-
-      await api.delete(
-        `/enrollments/${moduleToDrop.id}`
-      );
-
-      setMessage(
-        `${moduleToDrop.code} dropped successfully.`
-      );
-
-      setEnrolledModuleIds((currentIds) =>
-        currentIds.filter(
-          (id) => id !== moduleToDrop.id
-        )
-      );
-
-      setShowDropModal(false);
-      setModuleToDrop(null);
-    } catch (error: any) {
-      console.error(error);
-
-      setError(
-        error.response?.data?.message ||
-          "Failed to drop module"
-      );
-    } finally {
-      setDropping(false);
-    }
-  };
-
-  if (loading) {
-    return <PageLayout title="Modules" loading />;
+      setEnrolling(true); setError(""); setMessage("");
+      const res = await api.post("/enrollments", { code: code.trim().toUpperCase() });
+      setMessage(res.data.message || "Enrolled successfully.");
+      setCode("");
+      await load();
+    } catch (err: any) { setError(err.response?.data?.message || "Failed to enrol"); }
+    finally { setEnrolling(false); }
   }
+
+  async function confirmDrop() {
+    if (!dropModal) return;
+    try {
+      setDropping(true); setError(""); setMessage("");
+      await api.delete(`/enrollments/${dropModal.id}`);
+      setMessage(`${dropModal.code} dropped.`);
+      setEnrolledIds(prev => prev.filter(id => id !== dropModal.id));
+      setDropModal(null);
+    } catch (err: any) { setError(err.response?.data?.message || "Failed to drop module"); }
+    finally { setDropping(false); }
+  }
+
+  const filtered = modules.filter(m =>
+    m.code.toLowerCase().includes(search.toLowerCase()) ||
+    m.name.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
-    <>
-    <PageLayout
-      title="Modules"
-      subtitle="Student Workspace"
-      description="View available modules and access the ones you are enrolled in."
-    >
+    <AppShell>
+      <PageHeader title="Modules" description="Browse available modules and manage your enrolments." />
 
-        {/* ERROR */}
-
-        {error && (
-          <div className="mb-6 rounded-xl border border-red-500/30 bg-red-500/10 px-5 py-4 text-red-400">
-            {error}
-          </div>
-        )}
-
-        {/* SUCCESS */}
-
-        {message && (
-          <div className="mb-6 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-5 py-4 text-emerald-400">
-            {message}
-          </div>
-        )}
-
-        {/* ENROLL */}
-
-        <section className="bg-slate-900 border border-slate-800 rounded-2xl p-6 mb-10">
-
-          <h3 className="text-xl font-semibold">
-            Enroll in a Module
-          </h3>
-
-          <p className="text-slate-400 text-sm mt-2 mb-5">
-            Enter the module code provided by your
-            lecturer.
-          </p>
-
-          <form
-            onSubmit={handleEnroll}
-            className="flex flex-col sm:flex-row gap-3 max-w-xl"
-          >
-
+      {/* Enrol form */}
+      <div className="card" style={{ marginBottom: "1.5rem" }}>
+        <div className="card-header"><h2 className="card-title">Enrol in a module</h2></div>
+        <div className="card-body">
+          <form onSubmit={handleEnroll} style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
             <input
               type="text"
-              value={moduleCode}
-              onChange={(event) =>
-                setModuleCode(event.target.value)
-              }
-              placeholder="e.g. N3462"
-              className="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-4 py-3 text-white uppercase placeholder:text-slate-600 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              value={code}
+              onChange={e => setCode(e.target.value.toUpperCase())}
+              placeholder="Module code, e.g. N3462"
+              className="form-input"
+              style={{ flex: "1 1 200px" }}
             />
-
-            <button
-              type="submit"
-              disabled={enrolling}
-              className="px-6 py-3 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium"
-            >
-              {enrolling
-                ? "Enrolling..."
-                : "Enroll"}
+            <button type="submit" disabled={enrolling} className="btn btn-primary">
+              {enrolling ? "Enrolling…" : "Enrol"}
             </button>
-
           </form>
+          {message && <div className="alert alert-success" style={{ marginTop: "0.75rem" }}>{message}</div>}
+          {error && <div className="alert alert-danger" style={{ marginTop: "0.75rem" }}>{error}</div>}
+        </div>
+      </div>
 
-        </section>
+      {/* Search */}
+      <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "1rem", flexWrap: "wrap" }}>
+        <input
+          type="text"
+          placeholder="Search modules…"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="form-input"
+          style={{ maxWidth: "280px" }}
+        />
+        <p style={{ fontSize: "0.8125rem", color: "var(--color-text-3)" }}>
+          {filtered.length} module{filtered.length !== 1 ? "s" : ""}
+          {enrolledIds.length > 0 && ` · ${enrolledIds.length} enrolled`}
+        </p>
+      </div>
 
-        {/* AVAILABLE MODULES */}
-
-        <section>
-
-          <div className="mb-5">
-
-            <h3 className="text-2xl font-semibold">
-              Available Modules
-            </h3>
-
-            <p className="text-slate-400 text-sm mt-1">
-              Enter the code provided by the lecturer
-              to enroll.
-            </p>
-
+      {loading ? (
+        <div className="card"><div style={{ padding: "2.5rem", textAlign: "center", color: "var(--color-text-3)" }}>Loading modules…</div></div>
+      ) : filtered.length === 0 ? (
+        <div className="card">
+          <div className="empty-state">
+            <div className="empty-icon">📚</div>
+            <p className="empty-title">No modules found</p>
+            <p className="empty-description">Try a different search term.</p>
           </div>
-
-          {modules.length === 0 ? (
-
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-10 text-center">
-
-              <p className="text-slate-400">
-                No modules are currently available.
-              </p>
-
-            </div>
-
-          ) : (
-
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-
-              {modules.map((module) => {
-
-                const enrolled =
-                  enrolledModuleIds.includes(
-                    module.id
-                  );
-
+        </div>
+      ) : (
+        <div className="card">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Module</th>
+                <th>Description</th>
+                <th style={{ width: "80px", textAlign: "center" }}>Credits</th>
+                <th style={{ width: "120px", textAlign: "center" }}>Status</th>
+                <th style={{ width: "130px" }}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map(m => {
+                const enrolled = enrolledIds.includes(m.id);
                 return (
-                  <div
-                    key={module.id}
-                    className="bg-slate-900 border border-slate-800 rounded-2xl p-6 transition hover:border-slate-700 hover:shadow-lg"
-                  >
-
-                    <div className="flex items-start justify-between gap-3">
-
-                      <span className="text-sm font-semibold text-blue-400">
-                        {module.code}
+                  <tr key={m.id}>
+                    <td>
+                      <p style={{ fontWeight: 600, fontSize: "0.8125rem", color: "var(--color-student)" }}>{m.code}</p>
+                      <p style={{ fontWeight: 500, color: "var(--color-text)" }}>{m.name}</p>
+                    </td>
+                    <td style={{ color: "var(--color-text-3)", maxWidth: "300px" }}>
+                      <span style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                        {m.description || "No description."}
                       </span>
-
-                      {enrolled && (
-                        <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                          Enrolled
-                        </span>
-                      )}
-
-                    </div>
-
-                    <h4 className="text-xl font-semibold mt-4">
-                      {module.name}
-                    </h4>
-
-                    <p className="text-sm text-slate-400 mt-3 min-h-[40px]">
-                      {module.description ||
-                        "No description available."}
-                    </p>
-
-                    <p className="text-sm text-slate-500 mt-4">
-                      Credits: {module.credits}
-                    </p>
-
-                    <div className="mt-6 flex gap-3">
-
-                      <Link
-                        to={`/modules/${module.id}`}
-                        className="flex-1 text-center px-4 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 transition text-sm font-medium"
-                      >
-                        View Module
-                      </Link>
-
-                      {enrolled && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            openDropModal(module)
-                          }
-                          className="px-4 py-2.5 rounded-lg bg-red-600/20 text-red-400 hover:bg-red-600/30 border border-red-500/20 transition text-sm"
-                        >
-                          Drop
-                        </button>
-                      )}
-
-                    </div>
-
-                  </div>
+                    </td>
+                    <td style={{ textAlign: "center" }}>
+                      <span className="badge badge-gray">{m.credits}</span>
+                    </td>
+                    <td style={{ textAlign: "center" }}>
+                      {enrolled
+                        ? <span className="badge badge-green">Enrolled</span>
+                        : <span className="badge badge-gray">Available</span>
+                      }
+                    </td>
+                    <td>
+                      <div style={{ display: "flex", gap: "0.5rem" }}>
+                        <Link to={`/modules/${m.id}`} className="btn btn-secondary btn-sm">View</Link>
+                        {enrolled && (
+                          <button type="button" className="btn btn-sm" style={{ background: "var(--color-danger-light)", color: "var(--color-danger)", border: "1px solid var(--color-danger-border)" }} onClick={() => { setError(""); setMessage(""); setDropModal(m); }}>
+                            Drop
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
                 );
               })}
-
-            </div>
-
-          )}
-
-        </section>
-
-    </PageLayout>
-
-      {/* DROP MODULE CONFIRMATION MODAL */}      {showDropModal && moduleToDrop && (
-
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
-
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="drop-module-title"
-            className="w-full max-w-sm rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl"
-          >
-
-            {/* ICON */}
-
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-950 text-xl">
-              ⚠️
-            </div>
-
-            {/* TITLE */}
-
-            <h2
-              id="drop-module-title"
-              className="mt-5 text-xl font-semibold text-white"
-            >
-              Drop this module?
-            </h2>
-
-            {/* MESSAGE */}
-
-            <p className="mt-2 text-sm leading-6 text-slate-400">
-              Are you sure you want to drop{" "}
-              <span className="font-semibold text-slate-200">
-                {moduleToDrop.code} —{" "}
-                {moduleToDrop.name}
-              </span>
-              ?
-            </p>
-
-            <p className="mt-2 text-sm text-slate-500">
-              You will no longer be enrolled in this module.
-            </p>
-
-            {/* BUTTONS */}
-
-            <div className="mt-6 flex justify-end gap-3">
-
-              <button
-                type="button"
-                onClick={closeDropModal}
-                disabled={dropping}
-                className="rounded-lg border border-slate-700 px-5 py-2.5 text-sm font-semibold text-slate-300 transition hover:bg-slate-800 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Cancel
-              </button>
-
-              <button
-                type="button"
-                onClick={confirmDrop}
-                disabled={dropping}
-                className="rounded-lg bg-red-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {dropping
-                  ? "Dropping..."
-                  : "Drop Module"}
-              </button>
-
-            </div>
-
-          </div>
-
+            </tbody>
+          </table>
         </div>
-
       )}
 
-    </>
+      {/* Drop modal */}
+      {dropModal && (
+        <div className="modal-backdrop">
+          <div className="modal">
+            <h3 style={{ fontWeight: 700, fontSize: "1.0625rem", color: "var(--color-text)" }}>Drop module?</h3>
+            <p style={{ color: "var(--color-text-3)", fontSize: "0.875rem", marginTop: "0.5rem" }}>
+              You'll be unenrolled from <strong>{dropModal.code} — {dropModal.name}</strong>. This cannot be undone.
+            </p>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.625rem", marginTop: "1.5rem" }}>
+              <button className="btn btn-secondary" disabled={dropping} onClick={() => setDropModal(null)}>Cancel</button>
+              <button className="btn btn-danger" disabled={dropping} onClick={confirmDrop}>{dropping ? "Dropping…" : "Drop module"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </AppShell>
   );
 }
-
-export default Modules;

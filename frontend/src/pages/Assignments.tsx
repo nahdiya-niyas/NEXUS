@@ -1,226 +1,119 @@
-
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-
 import { api } from "../services/api";
-import PageLayout from "../components/PageLayout";
+import AppShell from "../components/AppShell";
+import PageHeader from "../components/PageHeader";
 
 interface Assignment {
-  id: number;
-  title: string;
-  description: string | null;
-  deadline: string;
-
-  module: {
-    id: number;
-    code: string;
-    name: string;
-  };
-
-  submissions: {
-    id: number;
-    submittedAt: string;
-    status: "SUBMITTED" | "LATE";
-    fileName: string;
-  }[];
+  id: number; title: string; description: string | null; deadline: string;
+  module: { id: number; code: string; name: string; };
+  submissions: { id: number; status: "SUBMITTED" | "LATE"; }[];
 }
 
-function Assignments() {
+function daysUntil(d: string) { return Math.ceil((new Date(d).getTime() - Date.now()) / 86400000); }
+
+export default function Assignments() {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [filter, setFilter] = useState<"upcoming" | "all">("upcoming");
 
   useEffect(() => {
-    const loadAssignments = async () => {
+    (async () => {
       try {
-        const response = await api.get("/assignments");
-
-        const allAssignments: Assignment[] =
-          response.data.assignments || [];
-
-        const now = new Date();
-
-        // Show only assignments whose deadline has not passed.
-        const upcomingAssignments = allAssignments.filter(
-          (assignment) => {
-            const deadline = new Date(assignment.deadline);
-
-            return deadline >= now;
-          }
-        );
-
-        // Nearest deadline first.
-        upcomingAssignments.sort(
-          (a, b) =>
-            new Date(a.deadline).getTime() -
-            new Date(b.deadline).getTime()
-        );
-
-        setAssignments(upcomingAssignments);
-      } catch (error: any) {
-        console.error(error);
-
-        setError(
-          error.response?.data?.message ||
-            "Failed to load assignments"
-        );
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadAssignments();
+        setLoading(true);
+        const res = await api.get("/assignments");
+        const all: Assignment[] = res.data.assignments || [];
+        all.sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime());
+        setAssignments(all);
+      } catch (err: any) { setError(err.response?.data?.message || "Failed to load assignments"); }
+      finally { setLoading(false); }
+    })();
   }, []);
 
-  if (loading) {
-    return (
-      <PageLayout title="Assignments" loading />
-    );
-  }
+  const now = new Date();
+  const visible = filter === "upcoming"
+    ? assignments.filter(a => new Date(a.deadline) >= now)
+    : assignments;
 
   return (
-    <PageLayout
-      title="Assignments"
-      subtitle="Student Workspace"
-      description="Stay on top of your upcoming academic deadlines."
-    >
-
-        {/* ERROR */}
-
-        {error && (
-          <div className="mb-6 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-red-400">
-            {error}
+    <AppShell>
+      <PageHeader
+        title="Assignments"
+        description="Track your upcoming and past assignment deadlines."
+        action={
+          <div style={{ display: "flex", gap: "0.25rem", background: "var(--color-surface-2)", borderRadius: "var(--radius-lg)", padding: "0.25rem" }}>
+            {(["upcoming", "all"] as const).map(f => (
+              <button key={f} type="button" onClick={() => setFilter(f)}
+                style={{ padding: "0.375rem 0.75rem", borderRadius: "var(--radius-md)", border: "none", cursor: "pointer", fontSize: "0.8125rem", fontWeight: 600,
+                  background: filter === f ? "white" : "transparent",
+                  color: filter === f ? "var(--color-text)" : "var(--color-text-3)",
+                  boxShadow: filter === f ? "var(--shadow-sm)" : "none" }}>
+                {f.charAt(0).toUpperCase() + f.slice(1)}
+              </button>
+            ))}
           </div>
-        )}
+        }
+      />
 
-        {/* NO ASSIGNMENTS */}
-
-        {assignments.length === 0 ? (
-
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-10 text-center">
-
-            <div className="text-4xl mb-4">
-              🎉
-            </div>
-
-            <h3 className="text-xl font-semibold">
-              No upcoming assignments
-            </h3>
-
-            <p className="text-slate-400 mt-2">
-              You have no upcoming assignments at the moment.
-            </p>
-
-            <p className="text-slate-500 text-sm mt-4">
-              Past assignments and submissions can be accessed
-              through their respective module pages.
-            </p>
-
+      {loading ? (
+        <div className="card"><div style={{ padding: "2.5rem", textAlign: "center", color: "var(--color-text-3)" }}>Loading…</div></div>
+      ) : error ? (
+        <div className="alert alert-danger">{error}</div>
+      ) : visible.length === 0 ? (
+        <div className="card">
+          <div className="empty-state">
+            <div className="empty-icon">🎉</div>
+            <p className="empty-title">{filter === "upcoming" ? "No upcoming assignments" : "No assignments yet"}</p>
+            <p className="empty-description">{filter === "upcoming" ? "You're all caught up." : "Assignments will appear here once your lecturers post them."}</p>
           </div>
-
-        ) : (
-
-          <div className="space-y-4">
-
-            {assignments.map((assignment) => {
-
-              const submission =
-                assignment.submissions[0];
-
-              return (
-                <Link
-                  key={assignment.id}
-                  to={`/assignments/${assignment.id}`}
-                  className="block bg-slate-900 border border-slate-800 rounded-2xl p-6 hover:border-blue-500 transition"
-                >
-
-                  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
-
-                    {/* ASSIGNMENT INFO */}
-
-                    <div>
-
-                      <p className="text-blue-400 text-sm font-semibold">
-                        {assignment.module.code} —{" "}
-                        {assignment.module.name}
+        </div>
+      ) : (
+        <div className="card">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Assignment</th>
+                <th>Module</th>
+                <th style={{ width: "150px" }}>Deadline</th>
+                <th style={{ width: "110px", textAlign: "center" }}>Status</th>
+                <th style={{ width: "70px" }}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {visible.map(a => {
+                const sub = a.submissions[0];
+                const days = daysUntil(a.deadline);
+                const past = days < 0;
+                return (
+                  <tr key={a.id}>
+                    <td>
+                      <p style={{ fontWeight: 500, color: "var(--color-text)" }}>{a.title}</p>
+                      {a.description && <p style={{ fontSize: "0.75rem", color: "var(--color-text-3)", marginTop: "0.125rem" }}>{a.description.slice(0, 80)}{a.description.length > 80 ? "…" : ""}</p>}
+                    </td>
+                    <td><span className="badge badge-blue">{a.module.code}</span></td>
+                    <td>
+                      <p style={{ fontSize: "0.8125rem", color: past ? "var(--color-text-3)" : days <= 3 ? "var(--color-danger)" : "var(--color-text-2)" }}>
+                        {new Date(a.deadline).toLocaleDateString(undefined, { dateStyle: "medium" })}
                       </p>
-
-                      <h3 className="text-xl font-semibold mt-2">
-                        {assignment.title}
-                      </h3>
-
-                      {assignment.description && (
-                        <p className="text-slate-400 text-sm mt-2 line-clamp-2">
-                          {assignment.description}
-                        </p>
-                      )}
-
-                    </div>
-
-                    {/* DEADLINE + STATUS */}
-
-                    <div className="lg:text-right">
-
-                      <p className="text-xs uppercase tracking-wide text-slate-500">
-                        Deadline
-                      </p>
-
-                      <p className="text-sm font-medium mt-1 text-slate-300">
-                        {formatDeadline(
-                          assignment.deadline
-                        )}
-                      </p>
-
-                      <div className="mt-3">
-
-                        {submission ? (
-
-                          <span
-                            className={
-                              submission.status === "LATE"
-                                ? "inline-block rounded-full bg-red-500/10 px-3 py-1 text-xs text-red-400"
-                                : "inline-block rounded-full bg-green-500/10 px-3 py-1 text-xs text-green-400"
-                            }
-                          >
-                            {submission.status === "LATE"
-                              ? "Submitted Late"
-                              : "Submitted"}
-                          </span>
-
-                        ) : (
-
-                          <span className="inline-block rounded-full bg-yellow-500/10 px-3 py-1 text-xs text-yellow-400">
-                            Not Submitted
-                          </span>
-
-                        )}
-
-                      </div>
-
-                    </div>
-
-                  </div>
-
-                </Link>
-              );
-            })}
-
-          </div>
-
-        )}
-
-    </PageLayout>
+                      {!past && days <= 3 && <p style={{ fontSize: "0.6875rem", color: "var(--color-danger)", marginTop: "0.125rem" }}>{days === 0 ? "Due today" : `${days}d left`}</p>}
+                    </td>
+                    <td style={{ textAlign: "center" }}>
+                      {sub
+                        ? <span className={`badge ${sub.status === "LATE" ? "badge-yellow" : "badge-green"}`}>{sub.status === "LATE" ? "Late" : "Submitted"}</span>
+                        : past
+                          ? <span className="badge badge-red">Overdue</span>
+                          : <span className="badge badge-gray">Pending</span>
+                      }
+                    </td>
+                    <td><Link to={`/assignments/${a.id}`} className="btn btn-secondary btn-sm">Open</Link></td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </AppShell>
   );
 }
-
-function formatDeadline(deadline: string) {
-  return new Date(deadline).toLocaleString(
-    undefined,
-    {
-      dateStyle: "medium",
-      timeStyle: "short",
-    }
-  );
-}
-
-export default Assignments;

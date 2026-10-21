@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-
+import { Link, useNavigate } from "react-router-dom";
 import { api } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 
@@ -10,132 +9,122 @@ export default function Login() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
-
     setError("");
     setLoading(true);
-
     try {
-      const response = await api.post("/auth/login", {
-        email,
-        password,
-      });
-
-      const { token, user } = response.data;
-
-      if (!token || !user) {
-        throw new Error("Invalid login response from server");
-      }
-
-      // Save authentication state
+      const res = await api.post("/auth/login", { email, password });
+      const { token, user } = res.data;
+      if (!token || !user) throw new Error("Invalid login response");
       login(token, user);
-
-      // Redirect according to role
-      if (user.role === "LECTURER") {
-        navigate("/lecturer-dashboard");
-      } else if (user.role === "ADMIN") {
-        navigate("/admin-dashboard");
-      } else {
-        navigate("/dashboard");
-      }
-    } catch (error: any) {
-      console.error("Login error:", error);
-
-      const message =
-        error?.response?.data?.message ||
-        "Login failed. Please check your email and password.";
-
-      setError(message);
+      if (user.role === "LECTURER") navigate("/lecturer-dashboard");
+      else if (user.role === "ADMIN") navigate("/admin-dashboard");
+      else navigate("/dashboard");
+    } catch (err: any) {
+      setError(err?.response?.data?.message || "Invalid email or password.");
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   return (
-    <div className="min-h-screen bg-slate-950 flex items-center justify-center px-4">
-      <div className="w-full max-w-md">
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "var(--color-bg)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "1.5rem",
+      }}
+    >
+      <div style={{ width: "100%", maxWidth: "23rem" }}>
 
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-white">
+        {/* Brand */}
+        <div style={{ textAlign: "center", marginBottom: "2rem" }}>
+          <div
+            style={{
+              width: "2.75rem", height: "2.75rem",
+              background: "var(--color-primary)",
+              borderRadius: "0.75rem",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: "1.125rem", fontWeight: 800, color: "white",
+              margin: "0 auto 1rem",
+            }}
+          >
+            N
+          </div>
+          <h1 style={{ fontSize: "1.5rem", fontWeight: 800, color: "var(--color-text)", letterSpacing: "-0.025em" }}>
             NEXUS
           </h1>
-
-          <p className="text-slate-400 mt-2">
-            Academic Management Platform
+          <p style={{ fontSize: "0.875rem", color: "var(--color-text-3)", marginTop: "0.25rem" }}>
+            University Academic Platform
           </p>
         </div>
 
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-xl">
+        {/* Card */}
+        <div className="card">
+          <div className="card-body" style={{ padding: "1.75rem" }}>
+            <h2 style={{ fontSize: "1.125rem", fontWeight: 700, color: "var(--color-text)", marginBottom: "1.25rem" }}>
+              Sign in to your account
+            </h2>
 
-          <h2 className="text-2xl font-semibold text-white mb-6">
-            Sign in
-          </h2>
+            {error && (
+              <div className="alert alert-danger" style={{ marginBottom: "1rem" }}>
+                {error}
+              </div>
+            )}
 
-          {error && (
-            <div className="mb-5 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-red-300">
-              {error}
-            </div>
-          )}
+            <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+              <div>
+                <label className="form-label">Email address</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@university.edu"
+                  required
+                  autoComplete="email"
+                  className="form-input"
+                />
+              </div>
 
-          <form onSubmit={handleLogin} className="space-y-5">
+              <div>
+                <label className="form-label">Password</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter your password"
+                  required
+                  autoComplete="current-password"
+                  className="form-input"
+                />
+              </div>
 
-            <div>
-              <label className="block text-sm text-slate-300 mb-2">
-                Email
-              </label>
-
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter your email"
-                required
-                className="w-full rounded-lg bg-slate-800 border border-slate-700 px-4 py-3 text-white outline-none focus:border-blue-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm text-slate-300 mb-2">
-                Password
-              </label>
-
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your password"
-                required
-                className="w-full rounded-lg bg-slate-800 border border-slate-700 px-4 py-3 text-white outline-none focus:border-blue-500"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-semibold py-3 transition"
-            >
-              {loading ? "Signing in..." : "Sign in"}
-            </button>
-
-          </form>
-
-          <p className="text-center text-slate-400 text-sm mt-6">
-            Don't have an account?{" "}
-            <button
-              type="button"
-              onClick={() => navigate("/register")}
-              className="text-blue-400 hover:text-blue-300"
-            >
-              Register
-            </button>
-          </p>
-
+              <button
+                type="submit"
+                disabled={loading}
+                className="btn btn-primary btn-lg"
+                style={{ width: "100%", marginTop: "0.25rem" }}
+              >
+                {loading ? "Signing in…" : "Sign in"}
+              </button>
+            </form>
+          </div>
         </div>
+
+        <p style={{ textAlign: "center", fontSize: "0.875rem", color: "var(--color-text-3)", marginTop: "1.25rem" }}>
+          Don't have an account?{" "}
+          <Link to="/register" style={{ color: "var(--color-student)", fontWeight: 600, textDecoration: "none" }}>
+            Create account
+          </Link>
+        </p>
+
       </div>
     </div>
   );

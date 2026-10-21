@@ -2,125 +2,131 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api } from "../services/api";
 
-function Register() {
+export default function Register() {
+  const navigate = useNavigate();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const navigate = useNavigate();
-
-  const handleRegister = async (e: React.FormEvent) => {
+  async function handleRegister(e: React.FormEvent) {
     e.preventDefault();
-
+    setError("");
+    setLoading(true);
     try {
-      await api.post("/auth/register", {
-        name,
-        email,
-        password,
-      });
-
-      setMessage("Registration successful!");
-
-      setTimeout(() => {
-        navigate("/");
-      }, 1000);
-    } catch (error: any) {
-      setMessage(
-        error.response?.data?.message || "Registration failed"
-      );
+      await api.post("/auth/register", { name, email, password });
+      navigate("/login");
+    } catch (err: any) {
+      setError(err.response?.data?.message || "Registration failed. Please try again.");
+    } finally {
+      setLoading(false);
     }
-  };
+  }
 
   return (
-    <div className="min-h-screen bg-slate-950 flex items-center justify-center px-4">
-      <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-xl">
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "var(--color-bg)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "1.5rem",
+      }}
+    >
+      <div style={{ width: "100%", maxWidth: "23rem" }}>
 
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-white">
+        {/* Brand */}
+        <div style={{ textAlign: "center", marginBottom: "2rem" }}>
+          <div
+            style={{
+              width: "2.75rem", height: "2.75rem",
+              background: "var(--color-primary)",
+              borderRadius: "0.75rem",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: "1.125rem", fontWeight: 800, color: "white",
+              margin: "0 auto 1rem",
+            }}
+          >
+            N
+          </div>
+          <h1 style={{ fontSize: "1.5rem", fontWeight: 800, color: "var(--color-text)", letterSpacing: "-0.025em" }}>
             NEXUS
           </h1>
-
-          <p className="text-slate-400 mt-2">
-            Create your account
+          <p style={{ fontSize: "0.875rem", color: "var(--color-text-3)", marginTop: "0.25rem" }}>
+            University Academic Platform
           </p>
         </div>
 
-        <form onSubmit={handleRegister} className="space-y-5">
+        <div className="card">
+          <div className="card-body" style={{ padding: "1.75rem" }}>
+            <h2 style={{ fontSize: "1.125rem", fontWeight: 700, color: "var(--color-text)", marginBottom: "1.25rem" }}>
+              Create your account
+            </h2>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
-              Name
-            </label>
+            {error && (
+              <div className="alert alert-danger" style={{ marginBottom: "1rem" }}>
+                {error}
+              </div>
+            )}
 
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Your name"
-              required
-              className="w-full rounded-lg bg-slate-800 border border-slate-700 px-4 py-3 text-white outline-none focus:border-blue-500"
-            />
+            <form onSubmit={handleRegister} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+              <div>
+                <label className="form-label">Full name</label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Your full name"
+                  required
+                  autoComplete="name"
+                  className="form-input"
+                />
+              </div>
+
+              <div>
+                <label className="form-label">Email address</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@university.edu"
+                  required
+                  autoComplete="email"
+                  className="form-input"
+                />
+              </div>
+
+              <div>
+                <label className="form-label">Password</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="At least 8 characters"
+                  required
+                  autoComplete="new-password"
+                  className="form-input"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="btn btn-primary btn-lg"
+                style={{ width: "100%", marginTop: "0.25rem" }}
+              >
+                {loading ? "Creating account…" : "Create account"}
+              </button>
+            </form>
           </div>
+        </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
-              Email
-            </label>
-
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              required
-              className="w-full rounded-lg bg-slate-800 border border-slate-700 px-4 py-3 text-white outline-none focus:border-blue-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
-              Password
-            </label>
-
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="At least 8 characters"
-              required
-              className="w-full rounded-lg bg-slate-800 border border-slate-700 px-4 py-3 text-white outline-none focus:border-blue-500"
-            />
-          </div>
-
-          {message && (
-            <p
-              className={
-                message.includes("successful")
-                  ? "text-green-400 text-sm"
-                  : "text-red-400 text-sm"
-              }
-            >
-              {message}
-            </p>
-          )}
-
-          <button
-            type="submit"
-            className="w-full rounded-lg bg-blue-600 hover:bg-blue-700 py-3 font-semibold text-white transition"
-          >
-            Create Account
-          </button>
-
-        </form>
-
-        <p className="text-center text-sm text-slate-400 mt-6">
+        <p style={{ textAlign: "center", fontSize: "0.875rem", color: "var(--color-text-3)", marginTop: "1.25rem" }}>
           Already have an account?{" "}
-          <Link
-            to="/"
-            className="text-blue-400 hover:text-blue-300"
-          >
-            Login
+          <Link to="/login" style={{ color: "var(--color-student)", fontWeight: 600, textDecoration: "none" }}>
+            Sign in
           </Link>
         </p>
 
@@ -128,5 +134,3 @@ function Register() {
     </div>
   );
 }
-
-export default Register;

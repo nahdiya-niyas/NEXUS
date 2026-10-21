@@ -1,288 +1,84 @@
-
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-
-import LecturerNavbar from "../components/LecturerNavbar";
 import { api } from "../services/api";
+import AppShell from "../components/AppShell";
+import PageHeader from "../components/PageHeader";
 
 interface Assignment {
-  id: number;
-  title: string;
-  description: string | null;
-  deadline: string;
-  fileName: string | null;
-
-  module: {
-    id: number;
-    code: string;
-    name: string;
-  };
-
-  _count: {
-    submissions: number;
-  };
+  id: number; title: string; description: string | null; deadline: string; fileName: string | null;
+  module: { id: number; code: string; name: string; };
+  _count: { submissions: number; };
 }
 
 export default function LecturerAssignments() {
-  const [assignments, setAssignments] = useState<Assignment[]>(
-    []
-  );
-
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    loadAssignments();
+    api.get("/lecturer/assignments").then(r => setAssignments(r.data.assignments || [])).catch(e => setError(e.response?.data?.message || "Failed to load")).finally(() => setLoading(false));
   }, []);
 
-  const loadAssignments = async () => {
-    try {
-      setLoading(true);
-      setError("");
-
-      const response = await api.get(
-        "/lecturer/assignments"
-      );
-
-      setAssignments(
-        response.data.assignments || []
-      );
-    } catch (error: any) {
-      console.error(
-        "LECTURER ASSIGNMENTS ERROR:",
-        error
-      );
-
-      setError(
-        error.response?.data?.message ||
-          "Failed to load assignments."
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const formatDate = (date: string) => {
-    return new Date(date).toLocaleString(
-      undefined,
-      {
-        dateStyle: "medium",
-        timeStyle: "short",
-      }
-    );
-  };
-
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
+    <AppShell>
+      <PageHeader
+        title="Assignments"
+        description="Create and manage assignments for your modules."
+        action={
+          <Link to="/lecturer/assignments/create" className="btn btn-primary">+ Create Assignment</Link>
+        }
+      />
 
-      {/* SHARED LECTURER NAVBAR */}
-
-      <LecturerNavbar />
-
-      <main className="max-w-7xl mx-auto px-6 py-10">
-
-        {/* PAGE HEADER */}
-
-        <div className="flex flex-col gap-5 mb-8 sm:flex-row sm:items-center sm:justify-between">
-
-          <div>
-
-            <p className="text-blue-400 text-sm font-semibold uppercase tracking-wider">
-              Lecturer Portal
-            </p>
-
-            <h1 className="text-4xl font-bold mt-2">
-              Assignments
-            </h1>
-
-            <p className="text-slate-400 mt-3">
-              Create and manage assignments for your modules.
-            </p>
-
+      {loading ? (
+        <div className="card"><div style={{ padding: "2.5rem", textAlign: "center", color: "var(--color-text-3)" }}>Loading…</div></div>
+      ) : error ? (
+        <div className="alert alert-danger">{error}</div>
+      ) : assignments.length === 0 ? (
+        <div className="card">
+          <div className="empty-state">
+            <div className="empty-icon">📝</div>
+            <p className="empty-title">No assignments yet</p>
+            <p className="empty-description">Create your first assignment to get started.</p>
+            <Link to="/lecturer/assignments/create" className="btn btn-primary" style={{ marginTop: "0.75rem", display: "inline-flex" }}>Create Assignment</Link>
           </div>
-
-          <Link
-            to="/lecturer/assignments/create"
-            className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-5 py-3 font-semibold transition hover:bg-blue-500"
-          >
-            + Create Assignment
-          </Link>
-
         </div>
-
-        {/* LOADING */}
-
-        {loading && (
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-8 text-center">
-
-            <p className="text-slate-400">
-              Loading assignments...
-            </p>
-
-          </div>
-        )}
-
-        {/* ERROR */}
-
-        {!loading && error && (
-          <div className="rounded-2xl border border-red-900 bg-red-950/40 p-6">
-
-            <p className="font-semibold text-red-400">
-              Unable to load assignments
-            </p>
-
-            <p className="mt-2 text-slate-400">
-              {error}
-            </p>
-
-            <button
-              type="button"
-              onClick={loadAssignments}
-              className="mt-5 rounded-lg bg-blue-600 px-5 py-2.5 font-semibold transition hover:bg-blue-700"
-            >
-              Try Again
-            </button>
-
-          </div>
-        )}
-
-        {/* EMPTY */}
-
-        {!loading &&
-          !error &&
-          assignments.length === 0 && (
-            <div className="rounded-2xl border border-slate-800 bg-slate-900 p-10 text-center">
-
-              <div className="mb-4 text-5xl">
-                📝
-              </div>
-
-              <h2 className="text-xl font-semibold">
-                No assignments created yet
-              </h2>
-
-              <p className="mt-2 text-slate-400">
-                Create your first assignment to get started.
-              </p>
-
-              <Link
-                to="/lecturer/assignments/create"
-                className="mt-5 inline-block rounded-lg bg-blue-600 px-5 py-2.5 font-semibold transition hover:bg-blue-500"
-              >
-                Create Assignment
-              </Link>
-
-            </div>
-          )}
-
-        {/* ASSIGNMENTS */}
-
-        {!loading &&
-          !error &&
-          assignments.length > 0 && (
-
-            <div className="grid gap-5">
-
-              {assignments.map((assignment) => (
-
-                <div
-                  key={assignment.id}
-                  className="rounded-2xl border border-slate-800 bg-slate-900 p-6 transition hover:border-slate-700"
-                >
-
-                  {/* TOP */}
-
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-
-                    <div className="min-w-0">
-
-                      <p className="text-sm font-semibold text-blue-400">
-                        {assignment.module.code} —{" "}
-                        {assignment.module.name}
-                      </p>
-
-                      <h2 className="mt-2 text-xl font-semibold text-white">
-                        {assignment.title}
-                      </h2>
-
-                      {assignment.description && (
-                        <p className="mt-2 text-sm leading-6 text-slate-400">
-                          {assignment.description}
-                        </p>
-                      )}
-
-                    </div>
-
-                    <Link
-                      to={`/lecturer/assignments/${assignment.id}`}
-                      className="shrink-0 text-sm font-medium text-blue-400 transition hover:text-blue-300"
-                    >
-                      View →
-                    </Link>
-
-                  </div>
-
-                  {/* DETAILS */}
-
-                  <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-3">
-
-                    {/* DEADLINE */}
-
-                    <div className="rounded-xl bg-slate-800 p-4">
-
-                      <p className="text-xs uppercase tracking-wide text-slate-500">
-                        Deadline
-                      </p>
-
-                      <p className="mt-2 text-sm text-slate-200">
-                        {formatDate(
-                          assignment.deadline
-                        )}
-                      </p>
-
-                    </div>
-
-                    {/* SUBMISSIONS */}
-
-                    <div className="rounded-xl bg-slate-800 p-4">
-
-                      <p className="text-xs uppercase tracking-wide text-slate-500">
-                        Submissions
-                      </p>
-
-                      <p className="mt-2 text-sm text-slate-200">
-                        {assignment._count.submissions}
-                      </p>
-
-                    </div>
-
-                    {/* DOCUMENT */}
-
-                    <div className="rounded-xl bg-slate-800 p-4">
-
-                      <p className="text-xs uppercase tracking-wide text-slate-500">
-                        Assignment Document
-                      </p>
-
-                      <p className="mt-2 truncate text-sm text-slate-200">
-                        {assignment.fileName ||
-                          "No document uploaded"}
-                      </p>
-
-                    </div>
-
-                  </div>
-
-                </div>
-
-              ))}
-
-            </div>
-
-          )}
-
-      </main>
-
-    </div>
+      ) : (
+        <div className="card">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Assignment</th>
+                <th>Module</th>
+                <th style={{ width: "160px" }}>Deadline</th>
+                <th style={{ width: "100px", textAlign: "center" }}>Submissions</th>
+                <th style={{ width: "110px", textAlign: "center" }}>Document</th>
+                <th style={{ width: "70px" }}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {assignments.map(a => {
+                const past = new Date(a.deadline) < new Date();
+                return (
+                  <tr key={a.id}>
+                    <td>
+                      <p style={{ fontWeight: 500, color: "var(--color-text)" }}>{a.title}</p>
+                      {a.description && <p style={{ fontSize: "0.75rem", color: "var(--color-text-3)", marginTop: "0.125rem" }}>{a.description.slice(0, 70)}{a.description.length > 70 ? "…" : ""}</p>}
+                    </td>
+                    <td><span className="badge badge-indigo">{a.module.code}</span></td>
+                    <td>
+                      <p style={{ fontSize: "0.8125rem", color: past ? "var(--color-text-3)" : "var(--color-text-2)" }}>{new Date(a.deadline).toLocaleDateString(undefined, { dateStyle: "medium" })}</p>
+                      {past ? <span className="badge badge-gray">Closed</span> : <span className="badge badge-yellow">Open</span>}
+                    </td>
+                    <td style={{ textAlign: "center", fontWeight: 600, color: "var(--color-text)" }}>{a._count.submissions}</td>
+                    <td style={{ textAlign: "center" }}>{a.fileName ? <span className="badge badge-green">Yes</span> : <span className="badge badge-gray">None</span>}</td>
+                    <td><Link to={`/lecturer/assignments/${a.id}`} className="btn btn-secondary btn-sm">View</Link></td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </AppShell>
   );
 }

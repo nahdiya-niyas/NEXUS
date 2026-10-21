@@ -1,540 +1,111 @@
-
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-
 import { api } from "../services/api";
 import { useAuth } from "../context/AuthContext";
-import LecturerNavbar from "../components/LecturerNavbar";
+import AppShell from "../components/AppShell";
+import StatCard from "../components/StatCard";
 
-interface LecturerProfile {
-  id: number;
-  name: string;
-  email: string;
-  role: "LECTURER";
-  createdAt: string;
-}
+interface LecturerProfile { id: number; name: string; email: string; role: string; createdAt: string; }
+interface Module { id: number; code: string; name: string; credits: number; _count: { enrollments: number; assignments: number; resources: number; }; }
+interface Assignment { id: number; title: string; deadline: string; module: { id: number; code: string; name: string; }; _count: { submissions: number; }; }
+interface Data { profile: LecturerProfile; statistics: { modules: number; students: number; assignments: number; resources: number; }; modules: Module[]; assignments: Assignment[]; }
 
-interface Module {
-  id: number;
-  code: string;
-  name: string;
-  description: string | null;
-  credits: number;
+function fmt(d: string) { return new Date(d).toLocaleDateString(undefined, { dateStyle: "medium" }); }
 
-  _count: {
-    enrollments: number;
-    assignments: number;
-    resources: number;
-  };
-}
-
-interface Assignment {
-  id: number;
-  title: string;
-  description: string | null;
-  deadline: string;
-
-  module: {
-    id: number;
-    code: string;
-    name: string;
-  };
-
-  _count: {
-    submissions: number;
-  };
-}
-
-interface LecturerDashboardData {
-  profile: LecturerProfile;
-
-  statistics: {
-    modules: number;
-    students: number;
-    assignments: number;
-    resources: number;
-  };
-
-  modules: Module[];
-
-  assignments: Assignment[];
-}
-
-function LecturerDashboard() {
+export default function LecturerDashboard() {
   const { user } = useAuth();
-
-  const [dashboard, setDashboard] =
-    useState<LecturerDashboardData | null>(null);
-
-  const [loading, setLoading] =
-    useState(true);
-
-  const [error, setError] =
-    useState("");
+  const [data, setData] = useState<Data | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    loadDashboard();
+    api.get("/lecturer/dashboard").then(r => setData(r.data)).catch(e => setError(e.response?.data?.message || "Failed to load")).finally(() => setLoading(false));
   }, []);
 
-  async function loadDashboard() {
-    try {
-      setLoading(true);
-      setError("");
-
-      const response =
-        await api.get(
-          "/lecturer/dashboard"
-        );
-
-      setDashboard(response.data);
-    } catch (error: any) {
-      console.error(
-        "LECTURER DASHBOARD ERROR:",
-        error
-      );
-
-      setError(
-        error.response?.data?.message ||
-          "Failed to load lecturer dashboard"
-      );
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  function formatDeadline(
-    deadline: string
-  ) {
-    return new Date(
-      deadline
-    ).toLocaleString(
-      undefined,
-      {
-        dateStyle: "medium",
-        timeStyle: "short",
-      }
-    );
-  }
-
-  if (!user) {
-    return null;
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-950 text-white">
-
-        <LecturerNavbar />
-
-        <main className="max-w-7xl mx-auto px-6 py-12">
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-8 text-center">
-            <p className="text-slate-300">
-              Loading lecturer dashboard...
-            </p>
-          </div>
-        </main>
-
-      </div>
-    );
-  }
-
-  if (error || !dashboard) {
-    return (
-      <div className="min-h-screen bg-slate-950 text-white">
-
-        <LecturerNavbar />
-
-        <main className="max-w-7xl mx-auto px-6 py-12">
-
-          <div className="mx-auto max-w-md rounded-2xl border border-red-500/30 bg-slate-900 p-8 text-center">
-
-            <h1 className="text-xl font-semibold">
-              Unable to load lecturer dashboard
-            </h1>
-
-            <p className="mt-3 text-red-400">
-              {error ||
-                "Dashboard data unavailable"}
-            </p>
-
-            <button
-              type="button"
-              onClick={loadDashboard}
-              className="mt-5 rounded-lg bg-white px-5 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-slate-200"
-            >
-              Try Again
-            </button>
-
-          </div>
-
-        </main>
-
-      </div>
-    );
-  }
+  if (!user) return null;
+  if (loading) return <AppShell><div style={{ padding: "3rem", textAlign: "center", color: "var(--color-text-3)" }}>Loading…</div></AppShell>;
+  if (error || !data) return <AppShell><div className="alert alert-danger">{error || "Failed to load"}</div></AppShell>;
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
+    <AppShell>
+      <div style={{ marginBottom: "1.75rem" }}>
+        <p style={{ fontSize: "0.8125rem", color: "var(--color-text-3)", marginBottom: "0.25rem" }}>Lecturer Portal</p>
+        <h1 className="page-title">Welcome back, {data.profile.name.split(" ")[0]}</h1>
+        <p className="page-description">Manage your modules, assignments, and student work.</p>
+      </div>
 
-      <LecturerNavbar />
+      {/* Stats */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1rem", marginBottom: "1.75rem" }}>
+        <StatCard label="Modules" value={data.statistics.modules} icon="📚" accent="var(--color-lecturer)" />
+        <StatCard label="Students" value={data.statistics.students} icon="🎓" />
+        <StatCard label="Assignments" value={data.statistics.assignments} icon="📝" />
+        <StatCard label="Resources" value={data.statistics.resources} icon="📂" />
+      </div>
 
-      <main className="max-w-7xl mx-auto px-6 py-10">
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.25rem" }}>
 
-        {/* WELCOME */}
-
-        <section className="mb-10">
-
-          <p className="text-blue-400 font-medium">
-            Lecturer Dashboard
-          </p>
-
-          <h2 className="mt-2 text-4xl font-bold">
-            Welcome, {dashboard.profile.name}
-          </h2>
-
-          <p className="mt-2 text-slate-400">
-            Manage your modules, assignments,
-            resources, and student submissions.
-          </p>
-
-        </section>
-
-        {/* STATISTICS */}
-
-        <section className="mb-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-            <p className="text-sm text-slate-500">
-              My Modules
-            </p>
-
-            <p className="mt-2 text-3xl font-bold">
-              {dashboard.statistics.modules}
-            </p>
+        {/* Modules */}
+        <div className="card">
+          <div className="card-header">
+            <h2 className="card-title">My Modules</h2>
+            <Link to="/lecturer/modules" style={{ fontSize: "0.8125rem", color: "var(--color-lecturer)", textDecoration: "none", fontWeight: 600 }}>View all →</Link>
           </div>
-
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-            <p className="text-sm text-slate-500">
-              Students
-            </p>
-
-            <p className="mt-2 text-3xl font-bold">
-              {dashboard.statistics.students}
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-            <p className="text-sm text-slate-500">
-              Assignments
-            </p>
-
-            <p className="mt-2 text-3xl font-bold">
-              {dashboard.statistics.assignments}
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-            <p className="text-sm text-slate-500">
-              Resources
-            </p>
-
-            <p className="mt-2 text-3xl font-bold">
-              {dashboard.statistics.resources}
-            </p>
-          </div>
-
-        </section>
-
-        {/* QUICK ACTIONS */}
-
-        <section className="mb-10">
-
-          <h3 className="mb-5 text-2xl font-semibold">
-            Quick Actions
-          </h3>
-
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-
-            <Link
-              to="/lecturer/modules"
-              className="rounded-2xl border border-slate-800 bg-slate-900 p-6 transition hover:border-blue-500"
-            >
-              <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-slate-800 text-xl">
-                📚
-              </div>
-
-              <h4 className="mt-4 text-lg font-semibold">
-                My Modules
-              </h4>
-
-              <p className="mt-2 text-sm text-slate-500">
-                Manage the modules you teach.
-              </p>
-            </Link>
-
-            <Link
-              to="/lecturer/assignments"
-              className="rounded-2xl border border-slate-800 bg-slate-900 p-6 transition hover:border-blue-500"
-            >
-              <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-slate-800 text-xl">
-                📝
-              </div>
-
-              <h4 className="mt-4 text-lg font-semibold">
-                Assignments
-              </h4>
-
-              <p className="mt-2 text-sm text-slate-500">
-                Create and manage assignments.
-              </p>
-            </Link>
-
-            <Link
-              to="/lecturer/resources"
-              className="rounded-2xl border border-slate-800 bg-slate-900 p-6 transition hover:border-blue-500"
-            >
-              <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-slate-800 text-xl">
-                📂
-              </div>
-
-              <h4 className="mt-4 text-lg font-semibold">
-                Resources
-              </h4>
-
-              <p className="mt-2 text-sm text-slate-500">
-                Upload learning resources.
-              </p>
-            </Link>
-
-            <Link
-              to="/lecturer/submissions"
-              className="rounded-2xl border border-slate-800 bg-slate-900 p-6 transition hover:border-blue-500"
-            >
-              <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-slate-800 text-xl">
-                📥
-              </div>
-
-              <h4 className="mt-4 text-lg font-semibold">
-                Submissions
-              </h4>
-
-              <p className="mt-2 text-sm text-slate-500">
-                Review student submissions.
-              </p>
-            </Link>
-
-          </div>
-
-        </section>
-
-        {/* MY MODULES */}
-
-        <section className="mb-10">
-
-          <div className="mb-5 flex items-center justify-between">
-
-            <div>
-              <h3 className="text-2xl font-semibold">
-                My Modules
-              </h3>
-
-              <p className="mt-1 text-sm text-slate-400">
-                Modules assigned to you.
-              </p>
-            </div>
-
-            <Link
-              to="/lecturer/modules"
-              className="text-sm text-blue-400 hover:text-blue-300"
-            >
-              View All
-            </Link>
-
-          </div>
-
-          {dashboard.modules.length === 0 ? (
-
-            <div className="rounded-2xl border border-slate-800 bg-slate-900 p-8 text-center">
-              <p className="text-slate-400">
-                No modules are assigned to you yet.
-              </p>
-            </div>
-
+          {data.modules.length === 0 ? (
+            <div className="empty-state"><div className="empty-icon">📚</div><p className="empty-title">No modules assigned</p></div>
           ) : (
-
-            <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-
-              {dashboard.modules.map(
-                (module) => (
-
-                  <Link
-                    key={module.id}
-                    to={`/lecturer/modules/${module.id}`}
-                    className="rounded-2xl border border-slate-800 bg-slate-900 p-6 transition hover:border-blue-500"
-                  >
-
-                    <div className="flex items-center justify-between">
-
-                      <span className="font-semibold text-blue-400">
-                        {module.code}
-                      </span>
-
-                      <span className="rounded-full bg-slate-800 px-3 py-1 text-xs">
-                        {module.credits} Credits
-                      </span>
-
-                    </div>
-
-                    <h4 className="mt-4 text-xl font-semibold">
-                      {module.name}
-                    </h4>
-
-                    <div className="mt-6 grid grid-cols-3 gap-3">
-
-                      <div>
-                        <p className="text-xs text-slate-500">
-                          Students
-                        </p>
-
-                        <p className="mt-1 font-semibold">
-                          {module._count.enrollments}
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-xs text-slate-500">
-                          Assignments
-                        </p>
-
-                        <p className="mt-1 font-semibold">
-                          {module._count.assignments}
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-xs text-slate-500">
-                          Resources
-                        </p>
-
-                        <p className="mt-1 font-semibold">
-                          {module._count.resources}
-                        </p>
-                      </div>
-
-                    </div>
-
-                  </Link>
-
-                )
-              )}
-
-            </div>
-
-          )}
-
-        </section>
-
-        {/* UPCOMING ASSIGNMENTS */}
-
-        <section>
-
-          <div className="mb-5 flex items-center justify-between">
-
             <div>
-              <h3 className="text-2xl font-semibold">
-                Upcoming Assignments
-              </h3>
-
-              <p className="mt-1 text-sm text-slate-400">
-                Assignments created by you.
-              </p>
+              {data.modules.slice(0, 5).map(m => (
+                <Link key={m.id} to={`/lecturer/modules/${m.id}`}
+                  style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.75rem 1.25rem", borderBottom: "1px solid var(--color-border)", textDecoration: "none", transition: "background 120ms" }}
+                  onMouseEnter={e => (e.currentTarget.style.background = "var(--color-surface-2)")}
+                  onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                  <div>
+                    <p style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--color-lecturer)" }}>{m.code}</p>
+                    <p style={{ fontSize: "0.875rem", color: "var(--color-text-2)", fontWeight: 500 }}>{m.name}</p>
+                  </div>
+                  <div style={{ display: "flex", gap: "0.375rem", flexShrink: 0 }}>
+                    <span className="badge badge-gray">{m._count.enrollments} students</span>
+                  </div>
+                </Link>
+              ))}
             </div>
-
-            <Link
-              to="/lecturer/assignments"
-              className="text-sm text-blue-400 hover:text-blue-300"
-            >
-              View All
-            </Link>
-
-          </div>
-
-          {dashboard.assignments.length === 0 ? (
-
-            <div className="rounded-2xl border border-slate-800 bg-slate-900 p-8 text-center">
-              <p className="text-slate-400">
-                No assignments have been created yet.
-              </p>
-            </div>
-
-          ) : (
-
-            <div className="space-y-4">
-
-              {dashboard.assignments
-                .slice(0, 5)
-                .map((assignment) => (
-
-                  <Link
-                    key={assignment.id}
-                    to={`/lecturer/assignments/${assignment.id}`}
-                    className="block rounded-2xl border border-slate-800 bg-slate-900 p-5 transition hover:border-blue-500"
-                  >
-
-                    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-
-                      <div>
-
-                        <h4 className="text-lg font-semibold">
-                          {assignment.title}
-                        </h4>
-
-                        <p className="mt-1 text-sm text-blue-400">
-                          {assignment.module.code} —{" "}
-                          {assignment.module.name}
-                        </p>
-
-                        <p className="mt-2 text-xs text-slate-500">
-                          {assignment._count.submissions}{" "}
-                          student
-                          {assignment._count.submissions !== 1
-                            ? "s"
-                            : ""}{" "}
-                          submitted
-                        </p>
-
-                      </div>
-
-                      <div className="md:text-right">
-
-                        <p className="text-xs uppercase tracking-wide text-slate-500">
-                          Deadline
-                        </p>
-
-                        <p className="mt-1 text-sm font-medium">
-                          {formatDeadline(
-                            assignment.deadline
-                          )}
-                        </p>
-
-                      </div>
-
-                    </div>
-
-                  </Link>
-
-                ))}
-
-            </div>
-
           )}
+        </div>
 
-        </section>
+        {/* Assignments */}
+        <div className="card">
+          <div className="card-header">
+            <h2 className="card-title">Assignments</h2>
+            <Link to="/lecturer/assignments" style={{ fontSize: "0.8125rem", color: "var(--color-lecturer)", textDecoration: "none", fontWeight: 600 }}>View all →</Link>
+          </div>
+          {data.assignments.length === 0 ? (
+            <div className="empty-state"><div className="empty-icon">📝</div><p className="empty-title">No assignments yet</p></div>
+          ) : (
+            <div>
+              {data.assignments.slice(0, 5).map(a => {
+                const past = new Date(a.deadline) < new Date();
+                return (
+                  <Link key={a.id} to={`/lecturer/assignments/${a.id}`}
+                    style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.75rem 1.25rem", borderBottom: "1px solid var(--color-border)", textDecoration: "none", transition: "background 120ms" }}
+                    onMouseEnter={e => (e.currentTarget.style.background = "var(--color-surface-2)")}
+                    onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                    <div>
+                      <p style={{ fontSize: "0.875rem", fontWeight: 500, color: "var(--color-text)" }}>{a.title}</p>
+                      <p style={{ fontSize: "0.75rem", color: "var(--color-text-3)" }}>{a.module.code} · {fmt(a.deadline)}</p>
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "0.25rem", flexShrink: 0 }}>
+                      <span className="badge badge-gray">{a._count.submissions} submitted</span>
+                      {!past && <span className="badge badge-yellow">Open</span>}
+                      {past && <span className="badge badge-gray">Closed</span>}
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
-      </main>
-
-    </div>
+      </div>
+    </AppShell>
   );
 }
-
-export default LecturerDashboard;
