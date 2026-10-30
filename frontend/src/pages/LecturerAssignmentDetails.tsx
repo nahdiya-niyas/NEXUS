@@ -105,7 +105,7 @@ export default function LecturerAssignmentDetails() {
               {assignment.fileName && (
                 <div>
                   <p style={{ fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--color-text-3)", marginBottom: "0.375rem" }}>Assignment Document</p>
-                  <a href={`http://localhost:3001${assignment.filePath}`} target="_blank" rel="noreferrer" className="btn btn-secondary btn-sm">Open {assignment.fileName}</a>
+                  <a href={assignment.filePath ?? "#"} target="_blank" rel="noreferrer" className="btn btn-secondary btn-sm">Open {assignment.fileName}</a>
                 </div>
               )}
             </div>

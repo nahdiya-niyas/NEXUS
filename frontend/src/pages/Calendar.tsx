@@ -89,16 +89,20 @@ export default function Calendar() {
                     }}>
                       <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "0.25rem" }}>
                         <span style={{
-                          fontSize: "0.8125rem", fontWeight: today ? 700 : 500,
-                          color: today ? "var(--color-student)" : "var(--color-text-3)",
-                          width: "1.5rem", height: "1.5rem",
-                          display: "flex", alignItems: "center", justifyContent: "center",
+                          fontSize: "0.8125rem",
+                          fontWeight: today ? 700 : 500,
+                          width: "1.5rem",
+                          height: "1.5rem",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
                           borderRadius: "9999px",
                           background: today ? "var(--color-student)" : "transparent",
-                          color: today ? "white" : undefined,
+                          color: today ? "white" : "var(--color-text-3)",
                         }}>
                           {day}
                         </span>
+
                       </div>
                       <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
                         {dayAssignments.map(a => (

@@ -60,7 +60,7 @@ export default function LecturerResources() {
     finally { setResourceLoading(false); }
   }
 
-  const fileUrl = (p: string) => p.startsWith("http") ? p : `http://localhost:3001${p}`;
+  const fileUrl = (p: string) => p.startsWith("http") ? p : p;
 
   if (loading) return <AppShell><div style={{ padding: "3rem", textAlign: "center", color: "var(--color-text-3)" }}>Loading…</div></AppShell>;
 

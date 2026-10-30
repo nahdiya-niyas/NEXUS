@@ -1,21 +1,13 @@
-
-# Dependencies
-node_modules/
-
-# Environment variables and secrets
 .env
 .env.*
 !.env.example
-
-# Build output
+node_modules/
 dist/
-
-# Logs
-*.log
-
-# User-uploaded files
+backups/
+backend/src/generated/prisma/
 backend/uploads/
-
-# Temporary files
-*.tmp
-*.tmp*
+CACHED
+ERROR
+[internal]
+docker
+.dockerignor.e

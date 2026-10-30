@@ -1,4 +1,5 @@
-import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
+
+import { type ChangeEvent, type FormEvent, useEffect, useRef, useState } from "react";
 import { api } from "../services/api";
 import AppShell from "../components/AppShell";
 import PageHeader from "../components/PageHeader";

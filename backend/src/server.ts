@@ -75,7 +75,7 @@ app.get("/api/test-db", async (req, res) => {
 
 app.use(errorHandler);
 
-app.listen(PORT, () => {
+app.listen(PORT, "0.0.0.0" , () => {
   console.log(
     `NEXUS backend running on http://localhost:${PORT}`
   );

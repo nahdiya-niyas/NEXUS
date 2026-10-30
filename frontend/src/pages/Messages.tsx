@@ -1,5 +1,4 @@
-import { FormEvent, useState } from "react";
-import AppShell from "../components/AppShell";
+import { type FormEvent, useState } from "react";import AppShell from "../components/AppShell";
 import PageHeader from "../components/PageHeader";
 
 export default function Messages() {

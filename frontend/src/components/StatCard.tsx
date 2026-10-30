@@ -1,4 +1,4 @@
-import { type ReactNode } from "react";
+import type { CSSProperties } from "react";
 
 interface Props {
   label: string;
@@ -39,7 +39,7 @@ export default function StatCard({ label, value, sub, accent, icon, onClick, hre
     </>
   );
 
-  const baseStyle: React.CSSProperties = {
+  const baseStyle: CSSProperties = {
     display: "block",
     background: "var(--color-surface)",
     border: "1px solid var(--color-border)",

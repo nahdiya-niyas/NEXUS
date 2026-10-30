@@ -1,0 +1,37 @@
+
+services:
+  frontend:
+    platform: linux/amd64
+    build: ./frontend
+    ports:
+      - "5173:80"
+
+  backend:
+    platform: linux/amd64
+    build: ./backend
+    ports:
+      - "3001:3001"
+    environment:
+      DATABASE_URL: "postgresql://postgres:${POSTGRES_PASSWORD}@db:5432/nexus_db?schema=public"
+      JWT_SECRET: "${JWT_SECRET}"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    platform: linux/amd64
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+      POSTGRES_DB: nexus_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d nexus_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:

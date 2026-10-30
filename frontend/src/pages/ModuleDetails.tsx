@@ -38,7 +38,7 @@ export default function ModuleDetails() {
     api.get(`/resources/module/${id}`).then(r => setResources(r.data.resources || [])).catch(() => {});
   }, [enrolled, id]);
 
-  const fileUrl = (p: string) => p.startsWith("http") ? p : `http://localhost:3001${p}`;
+  const fileUrl = (p: string) => p.startsWith("http") ? p : p;
 
   if (loading) return <AppShell><div style={{ padding: "3rem", textAlign: "center", color: "var(--color-text-3)" }}>Loading module…</div></AppShell>;
   if (error || !module) return (

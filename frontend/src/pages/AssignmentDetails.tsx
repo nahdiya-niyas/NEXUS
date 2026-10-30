@@ -1,5 +1,4 @@
-import { ChangeEvent, FormEvent, useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { type ChangeEvent, type FormEvent, useEffect, useState } from "react";import { useNavigate, useParams } from "react-router-dom";
 import { api } from "../services/api";
 import AppShell from "../components/AppShell";
 
